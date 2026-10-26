@@ -1,0 +1,140 @@
+# Stage 0 containerized profile (ARCHITECTURE §3.2): single host, only 3000 published.
+name: travel-planner
+
+x-model-env: &model-env
+  MODEL_PROVIDER: ${MODEL_PROVIDER:-ollama}
+  MODEL_MODEL: ${MODEL_MODEL:-llama3.1:8b}
+  MODEL_FALLBACK_CHAIN: ${MODEL_FALLBACK_CHAIN:-ollama,mock}
+  MODEL_TOOL_ROUNDS: ${MODEL_TOOL_ROUNDS:-3}
+  OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+
+services:
+  web:
+    build:
+      context: .
+      target: web
+    ports:
+      - "3000:3000"
+    environment:
+      <<: *model-env
+      ORCHESTRATOR_URL: http://orchestrator:8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      orchestrator:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  orchestrator:
+    build:
+      context: .
+      target: orchestrator
+    # 8000 stays internal by default. Uncomment to publish for card inspection:
+    # ports:
+    #   - "8000:8000"
+    environment:
+      <<: *model-env
+      AGENTS_REGISTRY_PATH: /app/config/agents.json
+      AGENT_DESTINATION_RESEARCH_BASE_URL: http://agent-destination:8001
+      AGENT_WEATHER_BASE_URL: http://agent-weather:8002
+      AGENT_BUDGET_BASE_URL: http://agent-budget:8003
+      AGENT_HR_BASE_URL: http://agent-hr:8004
+      PLAN_STORE: ${PLAN_STORE:-memory}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      agent-destination:
+        condition: service_healthy
+      agent-weather:
+        condition: service_healthy
+      agent-budget:
+        condition: service_healthy
+      agent-hr:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  agent-destination:
+    build:
+      context: .
+      target: agent-destination
+    environment:
+      <<: *model-env
+      KNOWLEDGE_PROVIDERS: ${KNOWLEDGE_PROVIDERS:-wikivoyage,wikipedia}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  agent-weather:
+    build:
+      context: .
+      target: agent-weather
+    environment:
+      WEATHER_PROVIDERS: ${WEATHER_PROVIDERS:-open-meteo,openweather,tomorrow,wttr}
+      OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:-}
+      TOMORROW_API_KEY: ${TOMORROW_API_KEY:-}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  agent-budget:
+    build:
+      context: .
+      target: agent-budget
+    environment:
+      COST_DB_PATH: /app/data/costs.db
+    volumes:
+      - budget-data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8003/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  agent-hr:
+    build:
+      context: .
+      target: agent-hr
+    environment:
+      HR_DB_PATH: /app/data/hr.db
+    volumes:
+      - hr-data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8004/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # Optional local model backend: docker compose --profile local up
+  # Then set OLLAMA_BASE_URL=http://ollama:11434 when starting the other services.
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["local"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+
+volumes:
+  ollama-models:
+  budget-data:
+  hr-data:

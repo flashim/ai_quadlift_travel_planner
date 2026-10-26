@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "agents": [
+    {
+      "name": "destination-research",
+      "baseUrl": "http://localhost:8001",
+      "sections": ["destination"],
+      "required": false,
+      "enabled": true,
+      "timeoutMs": 25000
+    },
+    {
+      "name": "weather",
+      "baseUrl": "http://localhost:8002",
+      "sections": ["weather"],
+      "required": false,
+      "enabled": true,
+      "timeoutMs": 10000
+    },
+    {
+      "name": "budget",
+      "baseUrl": "http://localhost:8003",
+      "sections": ["budget"],
+      "required": false,
+      "enabled": true,
+      "timeoutMs": 10000
+    },
+    {
+      "name": "hr",
+      "baseUrl": "http://localhost:8004",
+      "sections": ["hr"],
+      "required": false,
+      "enabled": true,
+      "timeoutMs": 10000,
+      "requiresField": "requestHrValidation",
+      "warnOnFailure": true
+    }
+  ]
+}

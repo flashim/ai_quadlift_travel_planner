@@ -1,0 +1,37 @@
+# secrets / env
+#.env
+.env.*
+!.env.example
+
+# dependencies
+node_modules/
+
+# build output
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# database (SQLite runtime files — §3.2)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# model artifacts / local models
+*.gguf
+*.bin
+*.safetensors
+models/
+
+# test output
+coverage/
+playwright-report/
+test-results/
+*.log
+
+# editors / OS
+.DS_Store
+.idea/
+.vscode/
